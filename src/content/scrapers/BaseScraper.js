@@ -1,40 +1,45 @@
-// BaseScraper.js - Shared scraper logic for all real estate sites
+// Shared scraper logic for all real estate sites
 export class BaseScraper {
     constructor(config) {
-        this.config = config; // Holds site-specific selectors
+        this.config = config;
     }
 
     /**
      * Core scraping loop.
      * Iterates over cards and extracts data based on the config provided by the child class.
      */
-   scrape() {
+    scrape() {
         const cards = document.querySelectorAll(this.config.cardSelector);
         console.log(`[BaseScraper] Found ${cards.length} property cards.`);
 
-        return Array.from(cards).map(card => {
+        const results = [];
+
+        cards.forEach(card => {
+            // First, get the status to check for rentals
+            const status = this.getElementStatus(card, this.config.statusSelector);
+
+            // If the status was flagged as a rental, skip this card entirely
+            if (status === 'SKIP_RENTAL') {
+                console.log("[BaseScraper] Skipping rental property.");
+                return; // Move to the next card
+            }
+
             const rawPrice = this.getElementText(card, this.config.priceSelector);
             const rawAcreage = this.getElementText(card, this.config.acreageSelector);
 
-            return {
-                // Unique ID for this property (can be used for deduplication).
-                id: crypto.randomUUID(), 
-                // The address text.
+            results.push({
+                id: crypto.randomUUID(),
                 address: this.getElementText(card, this.config.addressSelector),
-                // The price text.
                 price: this.parsePrice(rawPrice),
-                // The text containing lot size info.
                 acreage: this.parseAcreage(rawAcreage),
-                // Raw values (for debugging or display purposes).
                 rawPrice: rawPrice,
-                // The raw acreage text (e.g., "0.5 acres" or "21,780 sqft").
                 rawAcreage: rawAcreage,
-                // Any "badge" or "tag" text (Sold, Pending, Price Cut).
-                status: this.getElementText(card, this.config.statusSelector),
-                // The URL to the property details page.
+                status: status,
                 url: this.getHref(card, this.config.linkSelector)
-            };
+            });
         });
+
+        return results;
     }
 
     // --- Helper Utilities ---
@@ -65,14 +70,58 @@ export class BaseScraper {
     /**
      * Converts "0.5 acres" or "21,780 sqft" into a decimal acre value
      */
-    parseAcreage(acreStr) {
-        if (!acreStr) return 0;
-        const lower = acreStr.toLowerCase();
-        const num = parseFloat(lower.replace(/[,\s]/g, ''));
+    parseAcreage(text) {
+        if (!text) return 0;
+        // This regex looks for a number followed by 'acre' or 'sqft'
+        const match = text.match(/([\d,.]+)\s*(acre|sq\s*ft)/i);
+        if (!match) return 0;
 
-        if (lower.includes('sqft') || lower.includes('sq ft')) {
-            return num / 43560; // Standard conversion: 43,560 sqft = 1 acre
+        let value = parseFloat(match[1].replace(/,/g, ''));
+        const unit = match[2].toLowerCase();
+
+        // Convert sqft to acres if necessary
+        if (unit.includes('sq')) {
+            return value / 43560;
         }
-        return num || 0;
+        return value;
     }
+
+    /**
+     * Determines the status of a property card by checking specific selectors.
+     * If any status text contains "rent", it flags the card to be skipped.
+     * Otherwise, it prioritizes badges (like "Sold") and falls back to the longest text found.
+     * This method is designed to be flexible across different site structures while ensuring rentals are consistently filtered out.
+     * */
+    getElementStatus(card, selector) {
+        if (!selector) return '';
+
+        const elements = card.querySelectorAll(selector);
+        if (elements.length === 0) return '';
+
+        let bestMatch = '';
+
+        for (let el of elements) {
+            const text = el.innerText.trim();
+            const lowerText = text.toLowerCase();
+
+            // --- RENTAL FILTER ---
+            // If the status contains "rent", we flag this property to be skipped.
+            if (lowerText.includes('rent')) {
+                return 'SKIP_RENTAL';
+            }
+
+            // Logic for Zillow Badge (Priority)
+            if (el.getAttribute('data-c11n-component') === 'PropertyCard.Badge') {
+                return text; 
+            }
+
+            // Fallback: Longest string (usually contains the date)
+            if (text.length > bestMatch.length) {
+                bestMatch = text;
+            }
+        }
+
+        return bestMatch || '';
+    }
+
 } 

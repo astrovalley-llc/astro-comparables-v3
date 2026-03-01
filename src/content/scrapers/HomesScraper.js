@@ -7,7 +7,7 @@ export class HomesScraper extends BaseScraper {
             priceSelector: 'p.price-container',
             addressSelector: 'address',
             linkSelector: "a[role='link']",
-            acreageSelector: 'ul.detailed-info-container',
+            acreageSelector: 'ul.detailed-info-container.sqft-container',
             statusSelector: 'span.status-pill.tag-type-sold, span.status-pill.tag-type-pending, span.status-pill.tag-type-under-contract' // Unified name
         });
     }
