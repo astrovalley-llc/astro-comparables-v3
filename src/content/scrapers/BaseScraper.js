@@ -68,12 +68,17 @@ export class BaseScraper {
 
     // --- Helper Utilities ---
 
+
     getElementText(parent, selector) {
         if (!selector) return "";
         const el = parent.querySelector(selector);
         return el ? el.innerText.trim() : "";
     }
 
+    /**
+     * Extracts the href from a link element. 
+     * If the selector is missing or the element doesn't exist, it returns an empty string.
+     */
     getHref(parent, selector) {
         if (!selector) return "";
         const el = parent.querySelector(selector);

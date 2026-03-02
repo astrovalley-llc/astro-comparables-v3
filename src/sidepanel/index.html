@@ -512,6 +512,45 @@
                 color: #7c3aed !important;
                 text-decoration: underline !important;
             }
+
+        .astro-mini-card {
+            position: relative; /* Essential for the delete button positioning */
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+            .astro-mini-card:hover {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                /* transform: translateY(-2px);*/
+                border-color: #7c3aed; /* Subtle purple border on hover */
+            }
+
+
+        .delete-card-btn {
+            position: absolute;
+            top: -3px;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: #94a3b8; /* Subtle gray */
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 4px;
+            transition: color 0.2s ease, transform 0.2s ease;
+            z-index: 10;
+        }
+
+            .delete-card-btn:hover {
+                color: #ef4444; /* Turns red on hover to signal deletion */
+                transform: scale(1.4);
+            }
     </style>
 </head>
 <body>

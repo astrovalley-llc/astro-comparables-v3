@@ -195,7 +195,6 @@ function processAndDisplayResults(properties) {
     document.getElementById('statusMessageActive').style.display = 'none';
 }
 
-
 /**
  * Updates the summary div with the "X of Y results" text in purple
  */
@@ -283,8 +282,9 @@ function renderBucket(containerId, list) {
         console.log(`Sold Status: ${displayStatus}`);
 
         return `
-            <div class="astro-mini-card" style="padding: 8px; border: 1px solid #ddd; margin-bottom: 8px; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-radius: 6px; background: #fff; box-shadow: 0 8px 8px rgba(0, 0.08, 0, 0.16);">
-						   
+            <div class="astro-mini-card">		  
+                <button class ="delete-card-btn" data-id="${p.id}">&times;</button>
+
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                     <div style="font-size: 13px; color: #444;">
                         <span style="font-weight: 700;">${p.acreage}</span>
@@ -412,6 +412,17 @@ function calculateFinalValue() {
 }
 
 /**
+ * Deletes a property from the master list and re-renders the UI.
+ */
+function deleteProperty(id) {
+    // 1. Remove from the master list
+    masterPropertyList = masterPropertyList.filter(p => p.id !== id);
+
+    // 2. Re-run the display logic (this updates counts, stats, and market value)
+    processAndDisplayResults();
+}
+
+/**
  * Initialization & Listeners
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -500,6 +511,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (input) {
             // 'input' event triggers immediately on every keystroke
             input.addEventListener('input', processAndDisplayResults);
+        }
+    });
+
+    // Handle clicks on delete buttons using event delegation
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-card-btn')) {
+            const propertyId = e.target.getAttribute('data-id');
+            deleteProperty(propertyId);
         }
     });
 });
