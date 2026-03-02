@@ -12,7 +12,7 @@ export class ZillowScraper extends BaseScraper {
             linkSelector: 'a[data-test="property-card-link"]',
             
             // Acreage - using the data-testid provided in your HTML
-            acreageSelector: '[data-testid="property-card-details"] li',
+            acreageSelector: '[data-testid="property-card-details"]',
             
             // This targets the badge area where "Sold 01/16/26" lives
             // 1. Targets the photo overlay badge

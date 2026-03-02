@@ -24,14 +24,21 @@ export class BaseScraper {
                 return; // Move to the next card
             }
 
-            const rawPrice = this.getElementText(card, this.config.priceSelector);
+            // store a numeric acreageValue
             const rawAcreage = this.getElementText(card, this.config.acreageSelector);
+            const acreageString = this.parseAcreage(rawAcreage);
+            const numericAcreage = acreageString.includes('sqft') 
+                ? parseFloat(acreageString.replace(/,/g, '')) / 43560 
+                : parseFloat(acreageString);
+
+            const rawPrice = this.getElementText(card, this.config.priceSelector);
 
             results.push({
                 id: crypto.randomUUID(),
                 address: this.getElementText(card, this.config.addressSelector),
                 price: this.parsePrice(rawPrice),
                 acreage: this.parseAcreage(rawAcreage),
+                acreageValue: numericAcreage,
                 rawPrice: rawPrice,
                 rawAcreage: rawAcreage,
                 status: status,
@@ -61,9 +68,19 @@ export class BaseScraper {
      */
     parsePrice(priceStr) {
         if (!priceStr) return 0;
-        let clean = priceStr.replace(/[$,\s]/g, '').toLowerCase();
+
+        // 1. Extract only the first sequence of numbers/dots/letters (like 60k or 1.2m) 
+        // that immediately follows a '$'. This ignores any per-acre prices later in the text.
+        const match = priceStr.match(/\$([\d,.]+[km]?)/i);
+        if (!match) return 0;
+
+        // 2. Clean the matched string (e.g., "60,000" or "1.5M")
+        let clean = match[1].replace(/[,\s]/g, '').toLowerCase();
+
+        // 3. Apply your existing K/M multiplier logic
         if (clean.includes('k')) return parseFloat(clean) * 1000;
         if (clean.includes('m')) return parseFloat(clean) * 1000000;
+    
         return parseFloat(clean) || 0;
     }
 
@@ -71,19 +88,22 @@ export class BaseScraper {
      * Converts "0.5 acres" or "21,780 sqft" into a decimal acre value
      */
     parseAcreage(text) {
-        if (!text) return 0;
-        // This regex looks for a number followed by 'acre' or 'sqft'
-        const match = text.match(/([\d,.]+)\s*(acre|sq\s*ft)/i);
-        if (!match) return 0;
+        if (!text) return "0.00 Acres";
 
+        // 1. Extract the number and the unit (Acre or Sqft)
+        const match = text.match(/([\d,.]+)\s*(acre|sq\s*ft|sqft)/i);
+        if (!match) return "0.00 Acres";
+
+        // 2. Clean the numeric value for potential math (if needed elsewhere)
         let value = parseFloat(match[1].replace(/,/g, ''));
         const unit = match[2].toLowerCase();
 
-        // Convert sqft to acres if necessary
+        // 3. Return the formatted string based on what was found
         if (unit.includes('sq')) {
-            return value / 43560;
+            return `${value.toLocaleString()} sqft`;
         }
-        return value;
+    
+        return `${value.toFixed(2)} Acres`;
     }
 
     /**

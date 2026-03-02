@@ -4,7 +4,7 @@ export class HomesScraper extends BaseScraper {
     constructor() {
         super({
             cardSelector: 'li.placard-container',
-            priceSelector: 'p.price-container',
+            priceSelector: '.price-container',
             addressSelector: 'address',
             linkSelector: "a[role='link']",
             acreageSelector: 'ul.detailed-info-container.sqft-container',

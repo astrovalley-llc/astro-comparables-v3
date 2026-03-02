@@ -1,5 +1,5 @@
 // index.js - Sidebar Entry Point
-const ALLOWED_DOMAINS = ['zillow.com', 'realtor.com', 'homes.com'];
+const ALLOWED_DOMAINS = ['homes.com', 'realtor.com', 'zillow.com'];
 let masterPropertyList = []; // Holds the full list for filtering
 
 /**
@@ -52,6 +52,54 @@ async function handleAnalyzeClick() {
 }
 
 /**
+ * Clear Results Handler
+ */
+function handleClearClick() {
+    masterPropertyList = [];
+
+    document.getElementById('clearBtn').style.display = 'none';
+    document.getElementById('exportBtn').style.display = 'none';
+
+    const filtersStep = document.getElementById('filtersStep');
+    if (filtersStep) filtersStep.style.display = 'none';
+
+    const marketCalculator = document.getElementById('marketCalculator');
+    if (marketCalculator) marketCalculator.style.display = 'none';
+
+    document.getElementById('initialMessage').style.display = 'block';
+    document.getElementById('statusMessageSold').style.display = 'block';
+    document.getElementById('statusMessageActive').style.display = 'block';
+
+    document.getElementById('statusMessageSold').textContent = 'Click "Analyze" to start.';
+    document.getElementById('statusMessageActive').textContent = 'Click "Analyze" to start.';
+
+    document.getElementById('resultsBodySold').innerHTML = '';
+    document.getElementById('resultsBodyActive').innerHTML = '';
+
+    const summarySold = document.getElementById('summarySold');
+    const summaryActive = document.getElementById('summaryActive');
+    if (summarySold) summarySold.style.display = 'none';
+    if (summaryActive) summaryActive.style.display = 'none';
+
+    const summaryCountSold = document.getElementById('summaryCountSold');
+    const summaryCountActive = document.getElementById('summaryCountActive');
+    if (summaryCountSold) summaryCountSold.style.display = 'none';
+    if (summaryCountActive) summaryCountActive.style.display = 'none';
+}
+
+/**
+ * Export Results Handler
+ */
+function handleExportClick() {
+    if (!masterPropertyList || masterPropertyList.length === 0) {
+        console.warn('No data to export');
+        return;
+    }
+
+    console.log('Export functionality to be implemented', masterPropertyList);
+}
+
+/**
  * Splits data into Sold vs Active and renders them
  */
 function processAndDisplayResults(properties) {
@@ -59,37 +107,39 @@ function processAndDisplayResults(properties) {
     const filtersStep = document.getElementById('filtersStep');
     if (filtersStep) filtersStep.style.display = 'block';
 
+    const marketCalculator = document.getElementById('marketCalculator');
+    if (marketCalculator) marketCalculator.style.display = 'block';
+
+    // Show buttons when data is available
+    document.getElementById('clearBtn').style.display = 'block';
+    document.getElementById('exportBtn').style.display = 'block';
+
     // 2. Get current filter values
     const minAcres = parseFloat(document.getElementById('minAcreage')?.value) || 0;
     const maxAcres = parseFloat(document.getElementById('maxAcreage')?.value) || Infinity;
 
     // 3. Split the MASTER list into the two status buckets
-    const soldTotal = masterPropertyList.filter(p => 
-        p.status && p.status.toLowerCase().includes('sold')
-    );
-    const activeTotal = masterPropertyList.filter(p => 
-        !p.status || !p.status.toLowerCase().includes('sold')
-    );
+    const soldTotal = masterPropertyList.filter(p => p.status && p.status.toLowerCase().includes('sold'));
+    const activeTotal = masterPropertyList.filter(p => !p.status || !p.status.toLowerCase().includes('sold'));
 
-    // 4. Apply the Acreage Range Filter to those buckets
-    const soldFiltered = soldTotal.filter(p => p.acreage >= minAcres && p.acreage <= maxAcres);
-    const activeFiltered = activeTotal.filter(p => p.acreage >= minAcres && p.acreage <= maxAcres);
+    // 4. Apply Filter using acreageValue
+    const soldFiltered = soldTotal.filter(p => p.acreageValue >= minAcres && p.acreageValue <= maxAcres);
+    const activeFiltered = activeTotal.filter(p => p.acreageValue >= minAcres && p.acreageValue <= maxAcres);
 
-    // 5. Update Summaries (e.g., "5 of 15 results")
+    // 5. Update Tables, Headers, and Render Cards
     updateSummaryContainer('summarySold', soldFiltered, soldTotal.length);
     updateSummaryContainer('summaryActive', activeFiltered, activeTotal.length);
-
-    // Update the Headers (to the Spans)
     updateSummaryHeader('summaryCountSold', soldFiltered.length, soldTotal.length);
     updateSummaryHeader('summaryCountActive', activeFiltered.length, activeTotal.length);
-
-    // Clear status messages
-    document.getElementById('statusMessageSold').style.display = 'none';
-    document.getElementById('statusMessageActive').style.display = 'none';
 
     // Render each bucket
     renderBucket('resultsBodySold', soldFiltered);
     renderBucket('resultsBodyActive', activeFiltered);
+
+    // Clear status messages
+    document.getElementById('initialMessage').style.display = 'none';
+    document.getElementById('statusMessageSold').style.display = 'none';
+    document.getElementById('statusMessageActive').style.display = 'none';
 }
 
 /**
@@ -99,13 +149,13 @@ function updateSummaryHeader(elementId, visibleCount, totalCount) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    el.style.display = 'inline-block'; // Show the span
-    el.innerHTML = `<span style="color: #7c3aed; font-weight: 400;">${visibleCount} of ${totalCount} results</span>`;
+    el.style.display = 'inline-block';
+    el.textContent = `(${visibleCount} of ${totalCount})`;
 }
 
 /**
-    * Updates the summary div with the "X of Y" count and the stats table.
-    */
+ * Updates the summary div with the "X of Y" count and the stats table.
+ */
 function updateSummaryContainer(elementId, list, totalCount) {
     const container = document.getElementById(elementId);
     if (!container) return;
@@ -167,11 +217,10 @@ function renderBucket(containerId, list) {
 
     container.innerHTML = list.map(p => {
         const price = (p.price && typeof p.price === 'number') ? p.price : 0;
-        const acreage = (p.acreage && typeof p.acreage === 'number') ? p.acreage : 0;
         
-        // Math for Row 2: Price per Acre
-        const ppa = (price > 0 && acreage > 0) 
-            ? `$${Math.round(price / acreage).toLocaleString()} per Acre` 
+        // Use numeric value for math
+        const ppa = (price > 0 && p.acreageValue > 0) 
+            ? `$${Math.round(price / p.acreageValue).toLocaleString()} per Acre` 
             : 'Price per Acre: N/A';
 
         // Prevents Zillow from showing "Sold Sold" if the date is missing
@@ -184,7 +233,7 @@ function renderBucket(containerId, list) {
 						   
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                     <div style="font-size: 13px; color: #444;">
-                        <span style="font-weight: 700;">${acreage.toFixed(2)} Acre</span>
+                        <span style="font-weight: 700;">${p.acreage}</span>
                         ${displayStatus ? `
                             <span style="display: inline-block; font-size: 0.7em; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-top: 6px; font-weight: 600;">
                                 ${displayStatus}
@@ -212,24 +261,25 @@ function renderBucket(containerId, list) {
 }
 
 /**
-    * Calculates Mean and Median stats for a list of properties.
-    * Filters out invalid data (zero price/acres) to ensure accuracy.
-    */
+ * Calculates Mean and Median stats for a list of properties.
+ * Filters out invalid data (zero price/acres) to ensure accuracy.
+ */
 function calculateStats(properties) {
     if (!properties || properties.length === 0) return null;
 
-    const validOnes = properties.filter(p => p.price > 0 && p.acreage > 0);
+    // Filter out properties missing price or acreage to avoid NaN results
+    const validOnes = properties.filter(p => p.price > 0 && p.acreageValue > 0);
     if (validOnes.length === 0) return null;
 
-    const acres = validOnes.map(p => p.acreage);
+    const acres = validOnes.map(p => p.acreageValue);
     const prices = validOnes.map(p => p.price);
-    const ppas = validOnes.map(p => p.price / p.acreage);
+    const ppas = validOnes.map(p => p.price / p.acreageValue);
 
     const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
     const median = (arr) => {
         const sorted = [...arr].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
-        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[sorted.length / 2]) / 2;
     };
 
     return {
@@ -248,6 +298,8 @@ function calculateStats(properties) {
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Core Actions
     document.getElementById('analyzeBtn').addEventListener('click', handleAnalyzeClick);
+    document.getElementById('clearBtn').addEventListener('click', handleClearClick);
+    document.getElementById('exportBtn').addEventListener('click', handleExportClick);
 
     // 2. Tab Listeners for State Management
     updateAnalyzeButtonState();

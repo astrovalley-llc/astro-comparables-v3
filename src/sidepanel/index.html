@@ -310,8 +310,21 @@
         .astro-step-title {
             font-size: 14px;
             font-weight: 600;
-            flex: 1;
             color: #111827;
+        }
+
+        .astro-step-title-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .astro-summary-count {
+            font-size: 13px;
+            color: #897BCC;
+            font-weight: 500;
         }
 
         .astro-step-toggle {
@@ -433,6 +446,7 @@
         /* Summary Container Styles */
         .astro-summary-container {
             margin-bottom: 12px;
+            background: var(--astro-accent-highlight);
         }
 
         /* Card Container Styles */
@@ -503,6 +517,12 @@
         </div>
 
         <div style="display:flex; gap:8px;">
+            <button id="clearBtn" class="astro-btn" style="display:none;" aria-label="Clear results">
+                Clear
+            </button>
+            <button id="exportBtn" class="astro-btn" style="display:none;" aria-label="Export results">
+                Export
+            </button>
             <button id="analyzeBtn" class="astro-btn primary" aria-label="Analyze property listings">
                 Analyze
             </button>
@@ -612,8 +632,10 @@
                         <path d="M5,6H23V18H5V6M14,9A3,3 0 0,1 17,12A3,3 0 0,1 14,15A3,3 0 0,1 11,12A3,3 0 0,1 14,9M9,8A2,2 0 0,1 7,10V14A2,2 0 0,1 9,16H19A2,2 0 0,1 21,14V10A2,2 0 0,1 19,8H9M1,10H3V20H19V22H1V10Z" />
                     </svg>
                 </div>
-                <div class="astro-step-title">Sold</div>
-                <span id="summaryCountSold" style="display: none; flex: 1;"></span>
+                <div class="astro-step-title-group">
+                    <div class="astro-step-title">Sold</div>
+                    <span id="summaryCountSold" class="astro-summary-count" style="display: none;"></span>
+                </div>
                 <button class="astro-step-toggle" aria-label="Toggle sold section">
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
@@ -635,8 +657,10 @@
                         <path d="M10,21H14A2,2 0 0,1 12,23A2,2 0 0,1 10,21M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.1 14,4.19 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19M17,11A5,5 0 0,0 12,6A5,5 0 0,0 7,11V18H17V11M19.75,3.19L18.33,4.61C20.04,6.3 21,8.6 21,11H23C23,8.07 21.84,5.25 19.75,3.19M1,11H3C3,8.6 3.96,6.3 5.67,4.61L4.25,3.19C2.16,5.25 1,8.07 1,11Z" />
                     </svg>
                 </div>
-                <div class="astro-step-title">Active/Pending</div>
-                <span id="summaryCountActive" style="display: none; flex: 1;"></span>
+                <div class="astro-step-title-group">
+                    <div class="astro-step-title">Active/Pending</div>
+                    <span id="summaryCountActive" class="astro-summary-count" style="display: none;"></span>
+                </div>
                 <button class="astro-step-toggle" aria-label="Toggle active/pending section">
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
