@@ -24,19 +24,36 @@ export class BaseScraper {
                 return; // Move to the next card
             }
 
-            // store a numeric acreageValue
+            // Extract the raw text first so we can check them
+            const rawPrice = this.getElementText(card, this.config.priceSelector);
             const rawAcreage = this.getElementText(card, this.config.acreageSelector);
+
+            // SKIP LOGIC: If either is missing or empty, exit the loop for this card
+            if (!rawPrice || !rawAcreage) {
+                console.log("[BaseScraper] Skipping card: Missing price or acreage text.");
+                return; 
+            }
+
+            // Now it is safe to parse because we know the strings exist
+            const price = this.parsePrice(rawPrice);
             const acreageString = this.parseAcreage(rawAcreage);
+
+            // SECONDARY SKIP: If parsing resulted in 0 (meaning no numbers found)
+            if (price === 0 || acreageString === "0.00 Acres") {
+                console.log("[BaseScraper] Skipping card: Price or Acreage parsed as zero.");
+                return;
+            }
+
+            // store a numeric acreageValue
             const numericAcreage = acreageString.includes('sqft') 
                 ? parseFloat(acreageString.replace(/,/g, '')) / 43560 
                 : parseFloat(acreageString);
 
-            const rawPrice = this.getElementText(card, this.config.priceSelector);
 
             results.push({
                 id: crypto.randomUUID(),
                 address: this.getElementText(card, this.config.addressSelector),
-                price: this.parsePrice(rawPrice),
+                price: price,
                 acreage: this.parseAcreage(rawAcreage),
                 acreageValue: numericAcreage,
                 rawPrice: rawPrice,

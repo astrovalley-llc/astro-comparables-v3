@@ -136,6 +136,12 @@ function processAndDisplayResults(properties) {
     renderBucket('resultsBodySold', soldFiltered);
     renderBucket('resultsBodyActive', activeFiltered);
 
+    // Calculate suggested PPA based on current filters and update the input
+    updateSuggestedPPA();
+
+    // Recalculate the total value based on the current PPA and target acreage
+    calculateFinalValue();
+
     // Clear status messages
     document.getElementById('initialMessage').style.display = 'none';
     document.getElementById('statusMessageSold').style.display = 'none';
@@ -293,6 +299,79 @@ function calculateStats(properties) {
 }
 
 /**
+ * Calculates the lowest PPA from selected buckets and updates the input.
+ */
+function updateSuggestedPPA() {
+    const calcInput = document.getElementById('calcPPAInput');
+    const outputDiv = document.getElementById('calcValueOutput');
+    if (!calcInput) return;
+
+    // 1. Determine which buckets are active based on checkboxes
+    const useSold = document.getElementById('includeSoldCheckbox')?.checked;
+    const useActive = document.getElementById('includeActiveCheckbox')?.checked;
+
+    let possibleValues = [];
+
+    // 2. Get stats for Sold if checked
+    if (useSold) {
+        const soldStats = calculateStats(masterPropertyList.filter(p => 
+            p.status && p.status.toLowerCase().includes('sold')
+        ));
+        if (soldStats) possibleValues.push(soldStats.avgppa, soldStats.medianppa);
+    }
+
+    // 3. Get stats for Active if checked
+    if (useActive) {
+        const activeStats = calculateStats(masterPropertyList.filter(p => 
+            !p.status || !p.status.toLowerCase().includes('sold')
+        ));
+        if (activeStats) possibleValues.push(activeStats.avgppa, activeStats.medianppa);
+    }
+
+    // 4. Find the lowest value and update input
+    if (possibleValues.length > 0) {
+        const lowestPPA = Math.min(...possibleValues);
+        calcInput.value = Math.round(lowestPPA);
+    } else {
+        // If no buckets are selected or no data exists, clear the values
+        calcInput.value = "";
+        if (outputDiv) outputDiv.style.display = 'none';
+    }
+}
+
+    /**
+     * Multiplies the Price Per Acre by the Target Acreage to show the Final Value.
+     */
+    function calculateFinalValue() {
+        const ppaInput = document.getElementById('calcPPAInput');
+        const acresInput = document.getElementById('calcAcresInput');
+        const outputDiv = document.getElementById('calcValueOutput');
+
+        if (!ppaInput || !acresInput || !outputDiv) return;
+
+        const ppa = parseFloat(ppaInput.value) || 0;
+        const acres = parseFloat(acresInput.value) || 0;
+
+        if (acres <= 0) {
+            //outputDiv.style.display = 'none';
+            outputDiv.innerText = '$0.00';
+            return;
+        }
+
+        const totalValue = ppa * acres;
+
+        // Show your existing div
+        outputDiv.style.display = 'block';
+
+        // OPTION A: If your div is just a container for the number
+        outputDiv.innerText = `$${Math.round(totalValue).toLocaleString()}`;
+
+        // OPTION B: If you have a specific span inside for the value
+        // const valueSpan = document.getElementById('finalValueSpan');
+        // if (valueSpan) valueSpan.innerText = `$${Math.round(totalValue).toLocaleString()}`;
+    }
+
+/**
  * Initialization & Listeners
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -326,4 +405,26 @@ document.addEventListener('DOMContentLoaded', () => {
         minInput.addEventListener('input', processAndDisplayResults);
         maxInput.addEventListener('input', processAndDisplayResults);
     }
+
+    const soldCheck = document.getElementById('includeSoldCheckbox');
+    const activeCheck = document.getElementById('includeActiveCheckbox');
+
+    if (soldCheck) soldCheck.addEventListener('change', () => {
+        // Refresh the UI and the Suggested PPA
+        processAndDisplayResults(); 
+    });
+
+    if (activeCheck) activeCheck.addEventListener('change', () => {
+        processAndDisplayResults();
+    });
+
+
+    // Listen for changes in the Market Calculator inputs to update the final value
+    const acresInput = document.getElementById('calcAcresInput');
+    const ppaInput = document.getElementById('calcPPAInput');
+
+    if (acresInput) {acresInput.addEventListener('input', calculateFinalValue);}
+    
+    // This allows the user to manually override the suggested PPA
+    if (ppaInput) {ppaInput.addEventListener('input', calculateFinalValue);}
 });
