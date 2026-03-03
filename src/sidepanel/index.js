@@ -1,14 +1,61 @@
 // index.js - Sidebar Entry Point
 const ALLOWED_DOMAINS = ['homes.com', 'realtor.com', 'zillow.com'];
-let masterPropertyList = []; // Holds the full list for filtering
+
+// Holds the full list for filtering
+let masterPropertyList = []; 
+
+// Cached DOM Elements (initialized after DOM loads)
+let analyzeBtn, clearBtn, exportBtn, initialMessage;
+let statusMessageSold, statusMessageActive;
+let resultsBodySold, resultsBodyActive;
+let summarySold, summaryActive;
+let summaryCountSold, summaryCountActive;
+let filtersStep, marketCalculator;
+let calcPPAInput, calcAcresInput, calcValueOutput;
+let unifiedSort, currentSortDisplay;
+
+/**
+ * Initializes all DOM element references for performance
+ */
+function initializeDOMReferences() {
+    // Header buttons
+    analyzeBtn = document.getElementById('analyzeBtn');
+    clearBtn = document.getElementById('clearBtn');
+    exportBtn = document.getElementById('exportBtn');
+    initialMessage = document.getElementById('initialMessage');
+
+    // Status messages
+    statusMessageSold = document.getElementById('statusMessageSold');
+    statusMessageActive = document.getElementById('statusMessageActive');
+
+    // Results containers
+    resultsBodySold = document.getElementById('resultsBodySold');
+    resultsBodyActive = document.getElementById('resultsBodyActive');
+
+    // Summary containers
+    summarySold = document.getElementById('summarySold');
+    summaryActive = document.getElementById('summaryActive');
+    summaryCountSold = document.getElementById('summaryCountSold');
+    summaryCountActive = document.getElementById('summaryCountActive');
+
+    // Sections
+    filtersStep = document.getElementById('filtersStep');
+    marketCalculator = document.getElementById('marketCalculator');
+
+    // Market calculator inputs
+    calcPPAInput = document.getElementById('calcPPAInput');
+    calcAcresInput = document.getElementById('calcAcresInput');
+    calcValueOutput = document.getElementById('calcValueOutput');
+
+    // Sorting elements
+    unifiedSort = document.getElementById('unifiedSort');
+    currentSortDisplay = document.getElementById('currentSortDisplay');
+}
 
 /**
  * UI State Management
  */
 async function updateAnalyzeButtonState() {
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const initialMessage = document.getElementById('initialMessage');
-
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         const isAllowed = tab?.url && ALLOWED_DOMAINS.some(domain => new URL(tab.url).hostname.includes(domain));
@@ -17,7 +64,7 @@ async function updateAnalyzeButtonState() {
 
         if (initialMessage) {
             initialMessage.textContent = isAllowed 
-                ? 'Go to Sold or Active listings and click Analyze to Start.' 
+                ? 'Search listings and click Analyze to Start.' 
                 : 'Navigate to Homes.com, Realtor.com, or Zillow to analyze listings.';
         }
     } catch (error) {
@@ -29,7 +76,6 @@ async function updateAnalyzeButtonState() {
  * Main Scrape Trigger
  */
 async function handleAnalyzeClick() {
-    const analyzeBtn = document.getElementById('analyzeBtn');
     analyzeBtn.textContent = 'Analyzing...';
     analyzeBtn.disabled = true;
 
@@ -64,51 +110,38 @@ function handleClearClick() {
     // Wipe the storage
     localStorage.removeItem('propertyData');
 
-    document.getElementById('clearBtn').style.display = 'none';
-    document.getElementById('exportBtn').style.display = 'none';
+    clearBtn.style.display = 'none';
+    exportBtn.style.display = 'none';
 
     // Hide filters and market calculator
-    const filtersStep = document.getElementById('filtersStep');
     if (filtersStep) filtersStep.style.display = 'none';
-
-    const marketCalculator = document.getElementById('marketCalculator');
     if (marketCalculator) marketCalculator.style.display = 'none';
 
     // Show initial messages
-    document.getElementById('initialMessage').style.display = 'block';
-    document.getElementById('statusMessageSold').style.display = 'block';
-    document.getElementById('statusMessageActive').style.display = 'block';
+    initialMessage.style.display = 'block';
+    statusMessageSold.style.display = 'block';
+    statusMessageActive.style.display = 'block';
 
     // Reset status messages
-    document.getElementById('statusMessageSold').textContent = 'Click "Analyze" to start.';
-    document.getElementById('statusMessageActive').textContent = 'Click "Analyze" to start.';
+    statusMessageSold.textContent = 'Click "Analyze" to start.';
+    statusMessageActive.textContent = 'Click "Analyze" to start.';
 
     // Clear tables
-    document.getElementById('resultsBodySold').innerHTML = '';
-    document.getElementById('resultsBodyActive').innerHTML = '';
+    resultsBodySold.innerHTML = '';
+    resultsBodyActive.innerHTML = '';
 
     // Hide summary containers and headers
-    const summarySold = document.getElementById('summarySold');
-    const summaryActive = document.getElementById('summaryActive');
     if (summarySold) summarySold.style.display = 'none';
     if (summaryActive) summaryActive.style.display = 'none';
-
-    // Hide count headers
-    const summaryCountSold = document.getElementById('summaryCountSold');
-    const summaryCountActive = document.getElementById('summaryCountActive');
     if (summaryCountSold) summaryCountSold.style.display = 'none';
     if (summaryCountActive) summaryCountActive.style.display = 'none';
 
     // Reset Market Calculator
-    const calcInput = document.getElementById('calcPPAInput');
-    const acresInput = document.getElementById('calcAcresInput');
-    const outputDiv = document.getElementById('calcValueOutput');
-    
-    if (calcInput) calcInput.value = '';
-    if (acresInput) acresInput.value = '';
-    if (outputDiv) {
-        outputDiv.innerText = '$0.00';
-        acresInput.value = '';
+    if (calcPPAInput) calcPPAInput.value = '';
+    if (calcAcresInput) calcAcresInput.value = '';
+    if (calcValueOutput) {
+        calcValueOutput.innerText = '$0.00';
+        calcAcresInput.value = '';
     }
 
     // Reset filters
@@ -125,6 +158,42 @@ function handleClearClick() {
 }
 
 /**
+ * Returns all currently filtered records from both sold and active listings.
+ * Returns empty array if no records exist or no filters are applied.
+ */
+function getCurrentlyFilteredData() {
+    if (!masterPropertyList || masterPropertyList.length === 0) {
+        return [];
+    }
+
+    // Get ALL current filter values
+    const filters = {
+        acresMin: parseFloat(document.getElementById('acresMin')?.value) || 0,
+        acresMax: parseFloat(document.getElementById('acresMax')?.value) || Infinity,
+        priceMin: parseFloat(document.getElementById('priceMin')?.value) || 0,
+        priceMax: parseFloat(document.getElementById('priceMax')?.value) || Infinity,
+        ppaMin: parseFloat(document.getElementById('pricePerAcreMin')?.value) || 0,
+        ppaMax: parseFloat(document.getElementById('pricePerAcreMax')?.value) || Infinity
+    };
+
+    // Filter helper function
+    const applyAllFilters = (p) => {
+        const ppa = p.price / p.acreageValue;
+        return (
+            p.acreageValue >= filters.acresMin &&
+            p.acreageValue <= filters.acresMax &&
+            p.price >= filters.priceMin &&
+            p.price <= filters.priceMax &&
+            ppa >= filters.ppaMin &&
+            ppa <= filters.ppaMax
+        );
+    };
+
+    // Apply filters to all properties and return combined result
+    return masterPropertyList.filter(applyAllFilters);
+}
+
+/**
  * Export Results Handler
  */
 function handleExportClick() {
@@ -132,8 +201,133 @@ function handleExportClick() {
         console.warn('No data to export');
         return;
     }
+    prepareExportCards();
 
-    console.log('Export functionality to be implemented', masterPropertyList);
+    // Display the export container
+    const modal = document.getElementById('exportModal');
+    const drawer = modal?.querySelector(".astro-modal-content");
+
+    if (modal && drawer) {
+        drawer.style.transform = "translateY(-110%)";
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            drawer.style.transform = "translateY(0)";
+        });
+    }
+}
+
+function prepareExportCards() {
+
+    // 1. Prepare data and counts
+    const allRecords = masterPropertyList || [];
+    const filteredRecords = getCurrentlyFilteredData(); 
+
+    const optAll = document.getElementById('optionAll');
+    const optFiltered = document.getElementById('optionFiltered');
+    const exportCards = document.querySelectorAll('.astro-export-card');
+
+    // Update count displays
+    const countAllElement = document.getElementById('count-all');
+    const countFilteredElement = document.getElementById('count-filtered');
+
+    if (countAllElement) countAllElement.textContent = `(${allRecords.length})`;
+    if (countFilteredElement) countFilteredElement.textContent = `(${filteredRecords.length})`;
+
+    // If no records at all, disable both cards and exit
+    if (allRecords.length === 0) {
+        optAll.classList.add('disabled');
+        optFiltered.classList.add('disabled');
+        return;
+    }
+
+    // Remove disabled state if there are records
+    optAll.classList.remove('disabled');
+
+    // Set up click listeners for the cards
+    exportCards.forEach(card => {
+        card.onclick = () => {
+            if (card.classList.contains('disabled')) return;
+            exportCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            const radio = card.querySelector('input');
+            if (radio) radio.checked = true;
+        };
+    });
+
+    // Determine if "Filtered" is an eligible option
+    const isActuallyFiltered = filteredRecords.length < allRecords.length && filteredRecords.length > 0;
+
+    if (!isActuallyFiltered) {
+        optFiltered.classList.add('disabled');
+        optFiltered.classList.remove('active');
+        optAll.classList.add('active');
+        const allRadio = optAll.querySelector('input[value="all"]');
+        if (allRadio) allRadio.checked = true;
+    } else {
+        optFiltered.classList.remove('disabled');
+        optAll.classList.remove('active');
+        optFiltered.classList.add('active');
+        const filteredRadio = optFiltered.querySelector('input[value="filtered"]');
+        if (filteredRadio) filteredRadio.checked = true;
+    }
+}
+
+/**
+ * Closes the export modal with a slide-up animation
+ */
+function handleExportModalClose() {    
+    const modal = document.getElementById("exportModal");
+    if (!modal) return;
+
+    const drawer = modal.querySelector(".astro-modal-content");
+    if (drawer) {
+        drawer.style.transform = "translateY(-110%)";
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            drawer.style.transform = "";
+        }, 600);
+    }
+}
+
+/**
+ * Exports the selected dataset (all or filtered) to CSV with suggested filename
+ */
+function exportToCsv() {
+    if (masterPropertyList.length === 0) {
+        alert("No data to export!");
+        return;
+    }
+
+    // 1. Determine which export option is selected
+    const selectedRadio = document.querySelector('input[name="exportType"]:checked');
+    const exportType = selectedRadio ? selectedRadio.value : 'all';
+
+    // 2. Get the appropriate data and generate filename
+    let dataToExport;
+    let suggestedFilename;
+    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    if (exportType === 'filtered') {
+        dataToExport = getCurrentlyFilteredData();
+        suggestedFilename = `astro-valley-filtered-properties-${timestamp}.csv`;
+
+        // Validate filtered data exists
+        if (dataToExport.length === 0) {
+            alert("No filtered data to export!");
+            handleExportModalClose();
+            return;
+        }
+    } else {
+        // Export all records
+        dataToExport = masterPropertyList;
+        suggestedFilename = `astro-valley-all-properties-${timestamp}.csv`;
+    }
+
+    // 3. Trigger the download with suggested filename
+    downloadCSV(dataToExport, suggestedFilename);
+
+    // 4. Close the modal
+    handleExportModalClose();
 }
 
 /**
@@ -141,14 +335,11 @@ function handleExportClick() {
  */
 function processAndDisplayResults(properties) {
     // 1. Show UI elements now that we have data
-    const filtersStep = document.getElementById('filtersStep');
     if (filtersStep) filtersStep.style.display = 'block';
-
-    const marketCalculator = document.getElementById('marketCalculator');
     if (marketCalculator) marketCalculator.style.display = 'block';
 
-    document.getElementById('clearBtn').style.display = 'block';
-    document.getElementById('exportBtn').style.display = 'block';
+    clearBtn.style.display = 'block';
+    exportBtn.style.display = 'block';
 
     // 2. Get ALL current filter values
     const filters = {
@@ -200,9 +391,9 @@ function processAndDisplayResults(properties) {
     calculateFinalValue();
 
     // 7. Clear status messages
-    document.getElementById('initialMessage').style.display = 'none';
-    document.getElementById('statusMessageSold').style.display = 'none';
-    document.getElementById('statusMessageActive').style.display = 'none';
+    initialMessage.style.display = 'none';
+    statusMessageSold.style.display = 'none';
+    statusMessageActive.style.display = 'none';
 }
 
 /**
@@ -360,9 +551,7 @@ function calculateStats(properties) {
  * Calculates the lowest PPA from selected buckets and updates the input.
  */
 function updateSuggestedPPA(soldFiltered, activeFiltered) {
-    const calcInput = document.getElementById('calcPPAInput');
-    const outputDiv = document.getElementById('calcValueOutput');
-    if (!calcInput) return;
+    if (!calcPPAInput) return;
 
     const useSold = document.getElementById('includeSoldCheckbox')?.checked;
     const useActive = document.getElementById('includeActiveCheckbox')?.checked;
@@ -382,10 +571,10 @@ function updateSuggestedPPA(soldFiltered, activeFiltered) {
 
     if (possibleValues.length > 0) {
         const lowestPPA = Math.min(...possibleValues);
-        calcInput.value = Math.round(lowestPPA);
+        calcPPAInput.value = Math.round(lowestPPA);
     } else {
-        calcInput.value = "";
-        if (outputDiv) outputDiv.style.display = 'none';
+        calcPPAInput.value = "";
+        if (calcValueOutput) calcValueOutput.style.display = 'none';
     }
 }
 
@@ -393,32 +582,19 @@ function updateSuggestedPPA(soldFiltered, activeFiltered) {
  * Multiplies the Price Per Acre by the Target Acreage to show the Final Value.
  */
 function calculateFinalValue() {
-    const ppaInput = document.getElementById('calcPPAInput');
-    const acresInput = document.getElementById('calcAcresInput');
-    const outputDiv = document.getElementById('calcValueOutput');
+    if (!calcPPAInput || !calcAcresInput || !calcValueOutput) return;
 
-    if (!ppaInput || !acresInput || !outputDiv) return;
-
-    const ppa = parseFloat(ppaInput.value) || 0;
-    const acres = parseFloat(acresInput.value) || 0;
+    const ppa = parseFloat(calcPPAInput.value) || 0;
+    const acres = parseFloat(calcAcresInput.value) || 0;
 
     if (acres <= 0) {
-        //outputDiv.style.display = 'none';
-        outputDiv.innerText = '$0.00';
+        calcValueOutput.innerText = '$0.00';
         return;
     }
 
     const totalValue = ppa * acres;
-
-    // Show your existing div
-    outputDiv.style.display = 'block';
-
-    // OPTION A: If your div is just a container for the number
-    outputDiv.innerText = `$${Math.round(totalValue).toLocaleString()}`;
-
-    // OPTION B: If you have a specific span inside for the value
-    // const valueSpan = document.getElementById('finalValueSpan');
-    // if (valueSpan) valueSpan.innerText = `$${Math.round(totalValue).toLocaleString()}`;
+    calcValueOutput.style.display = 'block';
+    calcValueOutput.innerText = `$${Math.round(totalValue).toLocaleString()}`;
 }
 
 /**
@@ -439,7 +615,7 @@ function deleteProperty(id) {
  * Sorts a list of properties based on the selected field and direction.
  */
 function sortProperties(list) {
-    const sortValue = document.getElementById('unifiedSort').value;
+    const sortValue = unifiedSort.value;
     if (sortValue === 'none:asc') return [...list];
 
     // Split "price:desc" into field="price" and direction="desc"
@@ -465,6 +641,7 @@ function sortProperties(list) {
     });
 }
 
+
 function saveToLocalStorage() {
     try {
         localStorage.setItem('propertyData', JSON.stringify(masterPropertyList));
@@ -473,6 +650,7 @@ function saveToLocalStorage() {
         console.error('[Storage] Error saving to localStorage:', e);
     }
 }
+
 
 function loadFromLocalStorage() {
     const savedData = localStorage.getItem('propertyData');
@@ -493,29 +671,161 @@ function loadFromLocalStorage() {
 }
 
 /**
+ * Converts the current property data into CSV format and triggers a download.
+ */
+function downloadCSV(data, filename) {
+    if (data.length === 0) return alert("No data to export!");
+
+    // 1. Define Headers
+    const headers = ["Source", "Status", "Address", "Price", "Sold Date", "Acres", "Price/Acre", "URL"];
+
+    // 2. Helper function to extract source from URL
+    const getSource = (url) => {
+        if (!url) return "Unknown";
+        try {
+            const hostname = new URL(url).hostname;
+            if (hostname.includes('homes.com')) return 'Homes.com';
+            if (hostname.includes('realtor.com')) return 'Realtor.com';
+            if (hostname.includes('zillow.com')) return 'Zillow.com';
+            return hostname;
+        } catch {
+            return "Unknown";
+        }
+    };
+
+    // 3. Helper function to extract sold date from status
+    const extractSoldDate = (status) => {
+        if (!status) return "";
+
+        // Match MM/DD/YYYY or M/D/YYYY (e.g., "Sold - 4/25/2025")
+        let dateMatch = status.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (dateMatch) return dateMatch[1];
+
+        // Match MM/DD/YY or M/D/YY (e.g., "Sold 01/16/26")
+        dateMatch = status.match(/(\d{1,2}\/\d{1,2}\/\d{2})\b/);
+        if (dateMatch) {
+            // Convert 2-digit year to 4-digit year
+            const [month, day, year] = dateMatch[1].split('/');
+            const fullYear = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+            return `${month}/${day}/${fullYear}`;
+        }
+
+        // Match text month format (e.g., "SOLD APR 25, 2025")
+        dateMatch = status.match(/([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})/);
+        if (dateMatch) {
+            const monthNames = {
+                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+                'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12',
+                'january': '01', 'february': '02', 'march': '03', 'april': '04',
+                'june': '06', 'july': '07', 'august': '08', 'september': '09',
+                'october': '10', 'november': '11', 'december': '12'
+            };
+            const monthNum = monthNames[dateMatch[1].toLowerCase()] || '00';
+            const day = dateMatch[2].padStart(2, '0');
+            const year = dateMatch[3];
+            return `${monthNum}/${day}/${year}`;
+        }
+
+        return "";
+    };
+
+    // 4. Helper function to determine status (Sold, Active, Pending, etc.)
+    const getStatus = (status) => {
+        if (!status) return "Active";
+        if (status.toLowerCase().includes('sold')) return "Sold";
+        if (status.toLowerCase().includes('pending')) return "Pending";
+        return status.split('-')[0].trim(); // Return first part before any dash
+    };
+
+    // 5. Map data to rows
+    const rows = data.map(p => [
+        getSource(p.url),
+        getStatus(p.status),
+        `"${p.address || 'N/A'}"`, // Quote strings to handle commas in addresses
+        p.price || 0,
+        extractSoldDate(p.status),
+        p.acreageValue || 0,
+        `$${(p.price / p.acreageValue).toFixed(0).toLocaleString()}`,
+        p.url || ""
+    ]);
+
+    // 6. Construct CSV String
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+
+    // 7. Create Download Link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
  * Initialization & Listeners
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. IMMEDIATELY LOAD SAVED DATA
+    // 1. CACHE DOM REFERENCES FIRST
+    initializeDOMReferences();
+
+    // 2. LOAD SAVED DATA
     loadFromLocalStorage();
 
-    // 1. Core Actions
-    document.getElementById('analyzeBtn').addEventListener('click', handleAnalyzeClick);
-    document.getElementById('clearBtn').addEventListener('click', handleClearClick);
-    document.getElementById('exportBtn').addEventListener('click', handleExportClick);
+    // 3. INITIALIZE EVENT LISTENERS
+    addButtonListener();
+    addCheckboxListener();
+    initializeInputs();
+    initializeFilters();
+    initializeMarketValue();
+    initializeListingSorting();
 
-    // 2. Tab Listeners for State Management
+    // Expand/Collapse Logic for Steps (Retained)
+    document.querySelectorAll('.astro-step-header').forEach(header => {
+        header.addEventListener('click', () => header.closest('.astro-step').classList.toggle('collapsed'));
+    });   
+});
+
+function addButtonListener() {    
+    // Set up core button listeners
+    analyzeBtn.addEventListener('click', handleAnalyzeClick);
+    clearBtn.addEventListener('click', handleClearClick);
+
+    // Export Modal Buttons       
+    exportBtn.addEventListener('click', handleExportClick);
+    document.getElementById('closeModalBtn').addEventListener('click', handleExportModalClose);
+    document.getElementById('exportFinalBtn').addEventListener('click', exportToCsv);
+
+    // Analyze Button State Management
     updateAnalyzeButtonState();
     chrome.tabs.onUpdated.addListener((id, change) => { if (change.url || change.status === 'complete') updateAnalyzeButtonState(); });
     chrome.tabs.onActivated.addListener(updateAnalyzeButtonState);
 
-    // 3. Accordion Logic (Retained)
-    document.querySelectorAll('.astro-step-header').forEach(header => {
-        header.addEventListener('click', () => header.closest('.astro-step').classList.toggle('collapsed'));
+    // Handle clicks on delete buttons using event delegation
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-card-btn')) {
+            const propertyId = e.target.getAttribute('data-id');
+            deleteProperty(propertyId);
+        }
     });
+}
 
-    // 4. Number Input Formatting (Retained/Cleaned)
+function addCheckboxListener() {
+    
+    // Listen for changes in the Sold/Active checkboxes to update the Suggested PPA and final value
+    const soldCheck = document.getElementById('includeSoldCheckbox');
+    const activeCheck = document.getElementById('includeActiveCheckbox');
+
+    if (soldCheck) soldCheck.addEventListener('change', () => {processAndDisplayResults();});
+    if (activeCheck) activeCheck.addEventListener('change', () => {processAndDisplayResults();});
+}
+
+function initializeInputs() {
     document.querySelectorAll('input[type="number"]').forEach(input => {
+        
+        // Format to 2 decimal places on blur
         input.addEventListener('blur', function() {
             if (this.value && !isNaN(this.value)) this.value = parseFloat(this.value).toFixed(2);
         });
@@ -532,6 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If value is 0 and user is decrementing, clear the field
             if (value === 0) {
+               
                 // Small timeout to check if the next value would be negative
                 setTimeout(() => {
                     if (this.value === '0' || parseFloat(this.value) === 0) {
@@ -542,38 +853,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Listen for changes in filter inputs to update results in real-time
     const minInput = document.getElementById('minAcreage');
     const maxInput = document.getElementById('maxAcreage');
 
     if (minInput && maxInput) {
-        // 'input' event fires on every keystroke
         minInput.addEventListener('input', processAndDisplayResults);
         maxInput.addEventListener('input', processAndDisplayResults);
     }
+}
 
-    const soldCheck = document.getElementById('includeSoldCheckbox');
-    const activeCheck = document.getElementById('includeActiveCheckbox');
+function initializeMarketValue() {   
+    // Listen for changes in the Market Calculator inputs to update the final value
+    if (calcAcresInput) calcAcresInput.addEventListener('input', calculateFinalValue);
+    if (calcPPAInput) calcPPAInput.addEventListener('input', calculateFinalValue);
+}
 
-    if (soldCheck) soldCheck.addEventListener('change', () => {
-        // Refresh the UI and the Suggested PPA
-        processAndDisplayResults(); 
-    });
+function initializeListingSorting() {
+    // Sorting for tables
+    unifiedSort.addEventListener('change', () => {
+        // Update the visible label to match the chosen option text
+        currentSortDisplay.innerText = unifiedSort.options[unifiedSort.selectedIndex].text;
 
-    if (activeCheck) activeCheck.addEventListener('change', () => {
+        // Call your existing processing logic
         processAndDisplayResults();
     });
+}
 
-
-    // Listen for changes in the Market Calculator inputs to update the final value
-    const acresInput = document.getElementById('calcAcresInput');
-    const ppaInput = document.getElementById('calcPPAInput');
-
-    if (acresInput) {acresInput.addEventListener('input', calculateFinalValue);}
-    
-    // This allows the user to manually override the suggested PPA
-    if (ppaInput) { ppaInput.addEventListener('input', calculateFinalValue); }
-
-    const filterIds = [
+function initializeFilters() {
+    // Listen for changes in filter inputs to update results in real-time
+     const filterIds = [
         'acresMin', 'acresMax', 
         'priceMin', 'priceMax', 
         'pricePerAcreMin', 'pricePerAcreMax'
@@ -586,24 +895,6 @@ document.addEventListener('DOMContentLoaded', () => {
             input.addEventListener('input', processAndDisplayResults);
         }
     });
+}
 
-    // Handle clicks on delete buttons using event delegation
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-card-btn')) {
-            const propertyId = e.target.getAttribute('data-id');
-            deleteProperty(propertyId);
-        }
-    });
-
-    // Sorting for tables
-    const sortDropdown = document.getElementById('unifiedSort');
-    const displayLabel = document.getElementById('currentSortDisplay');
-
-    sortDropdown.addEventListener('change', () => {
-        // Update the visible label to match the chosen option text
-        displayLabel.innerText = sortDropdown.options[sortDropdown.selectedIndex].text;
-    
-        // Call your existing processing logic
-        processAndDisplayResults();
-    });
-});
+        

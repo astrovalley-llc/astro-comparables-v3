@@ -614,6 +614,91 @@
             pointer-events: none;
             z-index: 1;
         }
+
+        /* ==========================================================================
+           EXPORT DRAWER (ANIMATED)
+           ========================================================================== */
+
+        .astro-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            /* Background Fade Logic */
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s ease;
+        }
+
+        .astro-modal-content {
+            position: relative;
+            width: 100%;
+            background: #ffffff;
+            padding: 20px 16px 12px 16px;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+            transform: translateY(-110%); /* STARTING POSITION: Tucked away */
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); /* ANIMATION SPEED: Slowed down to 0.6s  */
+            will-change: transform;
+        }
+
+        .astro-export-card {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: var(--astro-bg-primary);
+            border: 1px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+            .astro-export-card:hover {
+                background: var(--astro-accent-highlight);
+            }
+
+            .astro-export-card.active {
+                border-color: var(--astro-accent-primary);
+                background: var(--astro-bg-secondary);
+                box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1);
+            }
+
+            .astro-export-card.disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+                .astro-export-card.disabled .astro-step-icon svg {
+                    fill: var(--astro-text-secondary);
+                }
+
+            .astro-modal-choices {
+                gap: 12px;
+                display: flex;
+                margin-top: 16px;
+                flex-direction: column;
+            }
+
+        .astro-modal-actions {
+            gap: 12px;
+            display: flex;
+            margin-top: 16px;
+            padding: 0 4px;
+        }
+
+
+        .hidden {
+            display: none !important;
+        }
+
     </style>
 </head>
 <body>
@@ -901,6 +986,54 @@
                     </svg>
                 </span>
                 <a href="https://buymeacoffee.com/grullon" target="_blank" rel="noopener noreferrer">Buy Me a Coffee</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="astro-modal-overlay hidden">
+        <div class="astro-modal-content">
+
+            <!-- Modal header -->
+            <h3>Export Records</h3>
+            <p>Select which data set you would like to export:</p>
+
+            <div class="astro-modal-choices">
+                <!-- Export all records -->
+                <label class="astro-export-card active" id="optionAll">
+                    <input type="radio" name="exportType" value="all" checked hidden>
+                    <span class="astro-step-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                        </svg>
+                    </span>
+                    <span class="card-info">
+                        <span class="card-title">All Records</span>
+                        <span class="card-desc">Download every scraped listing <strong id="count-all">(0)</strong></span>
+                    </span>
+                    <span class="card-selection-ui"></span>
+                </label>
+                <!-- Filtered all records -->
+                <label class="astro-export-card" id="optionFiltered">
+                    <input type="radio" name="exportType" value="filtered" hidden>
+                    <span class="astro-step-icon" >
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                        </svg>
+                    </span>
+                    <span class="card-info">
+                        <span class="card-title">Filtered Results</span>
+                        <span class="card-desc">Download only the current view <strong id="count-filtered">(5)</strong></span>
+                    </span>
+                    <span class="card-selection-ui"></span>
+                </label>
+            </div>
+            <div class="astro-modal-actions">
+                <button id="closeModalBtn" class="astro-btn">Cancel</button>
+                <button id="exportFinalBtn" class="astro-btn primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                    Export CSV
+                </button>
             </div>
         </div>
     </div>
